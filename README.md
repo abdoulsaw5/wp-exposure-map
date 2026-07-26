@@ -1,5 +1,5 @@
 # WP Exposure Map
-
+Link: https://abdoulsaw5.github.io/wp-exposure-map/
 A static reference tool that catalogs known-sensitive WordPress endpoints (configuration files, backup artifacts, REST API routes, admin surfaces, and more) organized by risk level. Paste in a domain and it generates clickable reference links across dozens of categories, each with a note explaining *why* that endpoint matters.
 
 Built as a checklist for authorized security research and penetration testing, not an automated scanner. It doesn't send any requests on your behalf: it only builds URLs. All verification is done manually by the researcher.
