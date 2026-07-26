@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WP Exposure Map — WordPress Security Endpoint Checker</title>
+<style>
+  :root{
+    --bg:#0d0f10;
+    --panel:#15181a;
+    --border:#242a2d;
+    --text:#e6e9ea;
+    --muted:#8b969b;
+    --accent:#7ee6ab;
+    --accent-dim:#4f9c72;
+    --risk-critical:#ff6b6b;
+    --risk-high:#ffb86b;
+    --risk-medium:#ffe66b;
+    --mono: 'JetBrains Mono','Fira Code',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--mono);
+    padding:60px 24px 100px;
+  }
+  .wrap{max-width:980px;margin:0 auto;}
+  header{text-align:center;margin-bottom:44px;}
+  h1{
+    font-size:clamp(2rem,5vw,3.1rem);
+    color:var(--accent);
+    margin:0 0 10px;
+    letter-spacing:-0.02em;
+    font-weight:700;
+  }
+  header p.sub{color:var(--muted);margin:0;font-size:0.95rem;}
+  header p.sub span{color:var(--text);}
+
+  .notice{
+    max-width:760px;
+    margin:22px auto 0;
+    padding:12px 16px;
+    border:1px solid var(--border);
+    border-left:3px solid var(--accent-dim);
+    background:#101312;
+    color:var(--muted);
+    font-size:0.8rem;
+    line-height:1.5;
+    text-align:left;
+    border-radius:4px;
+  }
+
+  .input-block{margin:44px auto 8px;max-width:640px;text-align:center;}
+  .input-block label{display:block;color:var(--muted);margin-bottom:12px;font-size:0.95rem;}
+  #domain{
+    width:100%;
+    background:#191d1f;
+    border:1px solid var(--border);
+    color:var(--text);
+    font-family:var(--mono);
+    font-size:1.05rem;
+    padding:14px 18px;
+    border-radius:8px;
+    outline:none;
+    transition:border-color .15s ease;
+  }
+  #domain:focus{border-color:var(--accent-dim);}
+  #domain::placeholder{color:#4a5458;}
+  .hint{color:#5c6669;font-size:0.75rem;margin-top:10px;}
+
+  .status-row{
+    text-align:center;
+    margin-top:14px;
+    min-height:20px;
+    font-size:0.8rem;
+    color:var(--accent);
+  }
+
+  .toolbar{
+    display:flex;
+    justify-content:center;
+    gap:10px;
+    margin:22px 0 8px;
+    flex-wrap:wrap;
+  }
+  .filter-btn{
+    background:transparent;
+    border:1px solid var(--border);
+    color:var(--muted);
+    font-family:var(--mono);
+    font-size:0.72rem;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    padding:6px 12px;
+    border-radius:20px;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .filter-btn:hover{border-color:var(--accent-dim);color:var(--text);}
+  .filter-btn.active{background:var(--accent);border-color:var(--accent);color:#0d0f10;font-weight:600;}
+
+  section.category{
+    border-top:1px solid var(--border);
+    padding:34px 0;
+  }
+  section.category:last-child{border-bottom:1px solid var(--border);}
+
+  .cat-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px;}
+  .cat-title{
+    font-size:0.78rem;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+  .cat-desc{color:#5c6669;font-size:0.82rem;margin:0 0 18px;line-height:1.5;max-width:720px;}
+
+  .endpoint{
+    display:flex;
+    align-items:flex-start;
+    gap:14px;
+    padding:12px 0;
+    border-top:1px solid #1c2022;
+  }
+  .endpoint:first-of-type{border-top:none;}
+
+  .risk-tag{
+    flex:0 0 auto;
+    font-size:0.65rem;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    padding:3px 8px;
+    border-radius:4px;
+    margin-top:2px;
+    font-weight:700;
+  }
+  .risk-critical{background:rgba(255,107,107,0.12);color:var(--risk-critical);border:1px solid rgba(255,107,107,0.35);}
+  .risk-high{background:rgba(255,184,107,0.12);color:var(--risk-high);border:1px solid rgba(255,184,107,0.35);}
+  .risk-medium{background:rgba(255,230,107,0.1);color:var(--risk-medium);border:1px solid rgba(255,230,107,0.3);}
+  .risk-low{background:rgba(126,230,171,0.08);color:var(--accent);border:1px solid rgba(126,230,171,0.25);}
+
+  .endpoint-body{flex:1;min-width:0;}
+  .endpoint-path{
+    color:var(--text);
+    font-size:0.95rem;
+    word-break:break-all;
+    text-decoration:none;
+    display:inline-block;
+    border-bottom:1px dashed transparent;
+    transition:color .15s ease, border-color .15s ease;
+  }
+  a.endpoint-path:hover{color:var(--accent);border-bottom-color:var(--accent-dim);cursor:pointer;}
+  span.endpoint-path.disabled{color:#5c6669;cursor:default;}
+  .endpoint-note{color:#5c6669;font-size:0.78rem;margin-top:4px;line-height:1.4;}
+
+  footer{
+    text-align:center;
+    color:#3a4245;
+    font-size:0.72rem;
+    margin-top:60px;
+    line-height:1.6;
+  }
+
+  @media (max-width:600px){
+    .endpoint{flex-wrap:wrap;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>WP Exposure Map</h1>
+    <p class="sub" id="subheading">Known-sensitive WordPress endpoints, grouped by risk · for authorized security research only</p>
+  </header>
+
+  <div class="notice">
+    Only test targets you own or have explicit written authorization to assess. This tool generates
+    reference links to publicly-documented WordPress paths — it does not send requests on your behalf.
+    Unauthorized access to computer systems is illegal in most jurisdictions.
+  </div>
+
+  <div class="input-block">
+    <label for="domain">Enter a target domain:</label>
+    <input id="domain" type="text" placeholder="example.com" autocomplete="off" spellcheck="false">
+    <div class="hint">Scheme and trailing slash are handled automatically · defaults to https://</div>
+  </div>
+
+  <div class="status-row" id="status"></div>
+
+  <div class="toolbar" id="toolbar">
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="critical">Critical</button>
+    <button class="filter-btn" data-filter="high">High</button>
+    <button class="filter-btn" data-filter="medium">Medium</button>
+    <button class="filter-btn" data-filter="low">Low</button>
+  </div>
+
+  <div id="categories"></div>
+
+  <footer>
+    Endpoint list reflects publicly documented WordPress file structure and known misconfiguration patterns.<br>
+    Built for defensive and educational security research.
+  </footer>
+
+</div>
+
+<script>
+const DATA = [
+  {
+    title: "Credential & Config Exposure",
+    desc: "If any of these return content instead of a 403/404, database credentials, secret keys, or salts may be readable.",
+    endpoints: [
+      { path: "wp-config.php", risk: "critical", note: "Should never be servable directly — contains DB credentials and auth keys." },
+      { path: "wp-config.php.bak", risk: "critical", note: "Backup left behind by editors/deploy scripts." },
+      { path: "wp-config.php.swp", risk: "critical", note: "Vim swap file artifact from editing on the server." },
+      { path: "wp-config.php.save", risk: "critical", note: "Common editor autosave artifact." },
+      { path: "wp-config.php~", risk: "critical", note: "Tilde backup left by some editors/tools." },
+      { path: "wp-config.php.old", risk: "critical", note: "Manual backup before a config change." },
+      { path: "wp-config.php.orig", risk: "critical", note: "Left behind by patch/merge tools or manual renames." },
+      { path: "wp-config.php.dist", risk: "high", note: "Template config some hosts ship — may still show DB structure/defaults." },
+      { path: "wp-config.txt", risk: "critical", note: "Renamed-to-txt trick that sometimes bypasses PHP execution and dumps raw source." },
+      { path: "wp-config.php.1", risk: "critical", note: "Numeric-suffix backup pattern left by some backup scripts." },
+      { path: "_wpeprivate/config.json", risk: "high", note: "WP Engine-specific private config path, worth checking on WPE-hosted sites." },
+      { path: ".env", risk: "critical", note: "Non-standard for core WP, but common when a framework/build tool is bolted on." },
+      { path: ".env.bak", risk: "critical", note: "Backup of the above, same exposure." },
+      { path: ".env.production", risk: "critical", note: "Environment-specific secrets file, common with modern deploy pipelines." },
+      { path: "wp-content/backup-db/", risk: "critical", note: "Default output dir for older DB-backup plugins — often unprotected." },
+      { path: "wp-content/uploads/wpallexport", risk: "high", note: "WP All Export leaves generated export files here, sometimes with sensitive data." }
+    ]
+  },
+  {
+    title: "Backup & Archive Files",
+    desc: "Full-site or database archives sometimes get left in the web root after a migration or manual backup.",
+    endpoints: [
+      { path: "backup.sql", risk: "critical", note: "Common lazy naming for a raw DB dump." },
+      { path: "database.sql", risk: "critical", note: "Same risk class — raw SQL dump readable over HTTP." },
+      { path: "db.sql", risk: "critical", note: "Short-form variant of the same naming habit." },
+      { path: "dump.sql", risk: "critical", note: "Another very common raw dump filename." },
+      { path: "wp-content.zip", risk: "high", note: "Full content directory archive, often includes uploads and configs." },
+      { path: "site-backup.tar.gz", risk: "high", note: "Generic full-site archive naming convention." },
+      { path: "backup.zip", risk: "high", note: "Another common lazy backup filename." },
+      { path: "backup.tar.gz", risk: "high", note: "Same pattern, tarball variant." },
+      { path: "backup-wordpress.zip", risk: "high", note: "Naming pattern used by some manual-backup workflows." },
+      { path: "wp-content/uploads/backup/", risk: "high", note: "Some backup plugins default to a subfolder inside uploads." },
+      { path: "wp-content/updraft/", risk: "high", note: "Default storage directory for the UpdraftPlus plugin if misconfigured." },
+      { path: "wp-content/ai1wm-backups/", risk: "high", note: "Default folder for All-in-One WP Migration exports — frequently left public." },
+      { path: "backwpup-*.zip", risk: "medium", note: "BackWPup default export naming pattern (wildcard — check directory listing)." }
+    ]
+  },
+  {
+    title: "Version & Software Disclosure",
+    desc: "Not exploitable on their own, but they fingerprint exact core/plugin versions to match against known CVEs.",
+    endpoints: [
+      { path: "readme.html", risk: "medium", note: "Ships with core, discloses the exact WP version." },
+      { path: "license.txt", risk: "medium", note: "Also discloses core version in most installs." },
+      { path: "wp-content/plugins/", risk: "medium", note: "Directory listing (if enabled) reveals installed plugins." },
+      { path: "wp-content/themes/", risk: "medium", note: "Directory listing reveals active/installed themes." },
+      { path: "wp-includes/version.php", risk: "medium", note: "Usually blocked, but confirms exact core version string if reachable." },
+      { path: "feed/", risk: "low", note: "RSS feed generator tag sometimes reveals WP version in the markup." },
+      { path: "wp-content/plugins/akismet/readme.txt", risk: "medium", note: "Bundled-plugin readme, common baseline check for version fingerprinting method." }
+    ]
+  },
+  {
+    title: "REST API & User Enumeration",
+    desc: "The REST API and legacy author-archive routing can leak valid usernames, which feeds directly into credential-stuffing/brute-force.",
+    endpoints: [
+      { path: "wp-json/", risk: "medium", note: "Root route discovery — lists every registered namespace/route on the site." },
+      { path: "wp-json/wp/v2/users", risk: "high", note: "Lists registered usernames/display names by default on many installs." },
+      { path: "wp-json/wp/v2/users/1", risk: "high", note: "Direct lookup of user ID 1 — traditionally the first admin created." },
+      { path: "wp-json/wp/v2/users?per_page=100", risk: "high", note: "Pulls a full page of users in one request where enumeration isn't rate-limited." },
+      { path: "?rest_route=/wp/v2/users", risk: "high", note: "Same enumeration via query-string routing, bypasses some pretty-permalink blocks." },
+      { path: "wp-json/wp/v2/posts?author=1", risk: "medium", note: "Confirms an author ID has published content, useful for cross-referencing enumeration." },
+      { path: "?author=1", risk: "medium", note: "Legacy author-archive redirect leaks the username in the resulting URL." },
+      { path: "wp-json/wc/v3/", risk: "medium", note: "WooCommerce REST namespace — check what's exposed without an API key." },
+      { path: "wp-json/oembed/1.0/embed?url=", risk: "medium", note: "oEmbed endpoint has historically been an SSRF vector in some configurations." },
+      { path: "wp-json/wp/v2/types", risk: "medium", note: "Enumerates registered custom post types — sometimes surfaces hidden/unlinked content types." },
+      { path: "wp-json/wp/v2/comments", risk: "low", note: "Comment enumeration, can reveal commenter emails depending on settings." },
+      { path: "wp-json/wp/v2/settings", risk: "medium", note: "Occasionally over-exposes site settings that should require auth." },
+      { path: "wp-json/wc/v3/system_status", risk: "high", note: "WooCommerce environment disclosure — server, plugin, and theme version details." },
+      { path: "wp-content/uploads/wc-logs/", risk: "high", note: "WooCommerce order/API logs — has contained payment gateway debug data in real findings." }
+    ]
+  },
+  {
+    title: "XML-RPC",
+    desc: "xmlrpc.php is a long-standing target for brute-force amplification (system.multicall) and pingback-based SSRF/DDoS.",
+    endpoints: [
+      { path: "xmlrpc.php", risk: "high", note: "If reachable, check whether system.multicall and pingback.ping are still enabled." },
+      { path: "xmlrpc.php?rsd", risk: "medium", note: "Really Simple Discovery document, also fingerprints the platform." }
+    ]
+  },
+  {
+    title: "Debug & Error Logs",
+    desc: "Debug logging left on in production can leak file paths, query data, and stack traces.",
+    endpoints: [
+      { path: "wp-content/debug.log", risk: "high", note: "Populated when WP_DEBUG_LOG is enabled — should not be public." },
+      { path: "error_log", risk: "medium", note: "PHP's default error log filename, sometimes dropped in the web root." },
+      { path: "wp-content/uploads/error_log", risk: "medium", note: "Uploads dir is writable, so PHP errors can land here." },
+      { path: "wp-content/debug.log.1", risk: "high", note: "Rotated debug log, same exposure as the primary file." },
+      { path: "php_errorlog", risk: "medium", note: "Alternate default error-log filename used by some PHP configs." },
+      { path: "logs/error.log", risk: "medium", note: "Generic logs directory some hosting stacks expose by default." }
+    ]
+  },
+  {
+    title: "Admin, Install & Editor Surfaces",
+    desc: "These should require authentication — reachability without a login redirect is itself a finding, and the code editors are a direct path to RCE if an attacker already has admin creds.",
+    endpoints: [
+      { path: "wp-admin/install.php", risk: "critical", note: "Reachable install screen on a live site can allow a full re-install/takeover." },
+      { path: "wp-admin/setup-config.php", risk: "critical", note: "Should only ever be reachable on a fresh, unconfigured install." },
+      { path: "wp-admin/theme-editor.php", risk: "high", note: "Built-in PHP file editor — RCE if reachable with valid admin credentials." },
+      { path: "wp-admin/plugin-editor.php", risk: "high", note: "Same RCE surface via plugin file editing." },
+      { path: "wp-admin/upgrade.php", risk: "medium", note: "Should redirect/require auth; unexpected output can reveal DB schema state." },
+      { path: "wp-admin/maint/repair.php", risk: "medium", note: "DB repair tool — should require WP_ALLOW_REPAIR to be set, worth confirming." },
+      { path: "wp-admin/network/", risk: "medium", note: "Multisite network admin — check whether it's reachable on a single-site install." },
+      { path: "wp-login.php?action=register", risk: "medium", note: "Confirms whether open user registration is enabled." },
+      { path: "wp-login.php?action=lostpassword", risk: "low", note: "Useful to confirm username-vs-email behavior for enumeration testing." }
+    ]
+  },
+  {
+    title: "Vulnerable Plugin Surfaces",
+    desc: "Specific plugins have shipped unauthenticated file-manager, import, or upload features that were widely exploited. Presence alone isn't a vuln — check installed version against CVE databases.",
+    endpoints: [
+      { path: "wp-content/plugins/wp-file-manager/lib/php/connector.minimal.php", risk: "critical", note: "Historically the target of a major unauthenticated RCE (CVE-2020-25213 era)." },
+      { path: "wp-content/plugins/duplicator/", risk: "high", note: "Duplicator installer packages have leaked full DB credentials if left post-migration." },
+      { path: "wp-content/plugins/wpdiscuz/", risk: "high", note: "Had an unauthenticated arbitrary file upload vuln in older versions." },
+      { path: "wp-content/plugins/elementor/", risk: "medium", note: "Frequent target for auth-bypass and stored XSS CVEs — version-check it." },
+      { path: "wp-content/plugins/contact-form-7/", risk: "medium", note: "Unrestricted file upload has been a recurring issue in older versions." },
+      { path: "wp-content/plugins/really-simple-ssl/", risk: "medium", note: "Had an auth-bypass vuln (CVE-2024-10924) affecting Pro versions." },
+      { path: "wp-content/plugins/wp-fastest-cache/", risk: "medium", note: "SQL injection history in older versions — worth version-checking." },
+      { path: "wp-content/plugins/wpforms-lite/", risk: "low", note: "Common install, check version against known disclosure vulns." }
+    ]
+  },
+  {
+    title: "Uploads & File Exposure",
+    desc: "The uploads directory is world-writable by design; misconfiguration here can lead to listing or PHP execution.",
+    endpoints: [
+      { path: "wp-content/uploads/", risk: "medium", note: "Directory listing (if enabled) exposes every uploaded file, public or not." },
+      { path: "wp-content/uploads/.htaccess", risk: "medium", note: "Confirms whether execution of PHP in uploads is actually blocked." },
+      { path: "wp-content/uploads/elementor/css/", risk: "low", note: "Generated CSS cache, occasionally reveals internal page structure/IDs." },
+      { path: "wp-content/uploads/woocommerce_uploads/", risk: "medium", note: "Customer-uploaded order files (e.g. custom product uploads) — check access controls." },
+      { path: "wp-content/uploads/wpcf7_uploads/", risk: "medium", note: "Contact Form 7 file uploads directory, sometimes left listable." },
+      { path: "wp-content/mu-plugins/", risk: "medium", note: "Must-use plugins directory — code here runs on every request with no way to disable via admin UI." }
+    ]
+  },
+  {
+    title: "Version Control & Metadata Leaks",
+    desc: "Deploy processes that copy a working directory straight to the server sometimes bring the VCS folder with them.",
+    endpoints: [
+      { path: ".git/config", risk: "critical", note: "If present, the entire repo history is usually reconstructable." },
+      { path: ".git/HEAD", risk: "critical", note: "Quick way to confirm a live .git directory before deeper extraction." },
+      { path: ".gitignore", risk: "medium", note: "Doesn't leak content directly, but often reveals what sensitive files exist to look for." },
+      { path: ".svn/entries", risk: "high", note: "Legacy SVN metadata leak, same class of risk as .git." },
+      { path: ".hg/store/", risk: "high", note: "Mercurial equivalent of the .git exposure class." },
+      { path: ".DS_Store", risk: "medium", note: "macOS Finder metadata file that can leak directory listings." },
+      { path: "composer.json", risk: "medium", note: "Reveals PHP dependency versions if a Composer-based workflow was used." },
+      { path: "package.json", risk: "medium", note: "Reveals JS build tooling and dependency versions if present." },
+      { path: "yarn.lock", risk: "low", note: "Confirms exact dependency versions, useful for supply-chain CVE matching." }
+    ]
+  },
+  {
+    title: "Staging & Migration Artifacts",
+    desc: "Leftovers from moving a site between environments — often forgotten because they're outside the normal WP admin workflow.",
+    endpoints: [
+      { path: "wp-content/uploads/wp-migrate-db/", risk: "high", note: "WP Migrate DB Pro export directory, can contain full DB dumps." },
+      { path: "staging/", risk: "medium", note: "Common subdirectory naming for a staging copy left publicly reachable." },
+      { path: "old/", risk: "medium", note: "Generic naming for a previous site version left in place." },
+      { path: "test/", risk: "medium", note: "Same pattern — leftover test copy of the site." },
+      { path: "wp-content/uploads/dump/", risk: "high", note: "Ad hoc naming some devs use for temporary DB/file dumps." }
+    ]
+  },
+  {
+    title: "Discovery & Fingerprinting",
+    desc: "Low-risk on their own, but useful for building a full picture of the target before deciding where to dig deeper.",
+    endpoints: [
+      { path: "robots.txt", risk: "low", note: "Often unintentionally maps out admin paths and disallowed directories." },
+      { path: "sitemap.xml", risk: "low", note: "Core sitemap — confirms content structure and indexed post types." },
+      { path: "wp-sitemap.xml", risk: "low", note: "Native WP 5.5+ sitemap index, separate from SEO-plugin sitemaps." },
+      { path: "humans.txt", risk: "low", note: "Occasionally leaks internal team names/emails, not WP-specific but common." },
+      { path: ".well-known/security.txt", risk: "low", note: "If present, gives the correct authorized channel for reporting findings." },
+      { path: "author-sitemap.xml", risk: "medium", note: "Yoast SEO's author sitemap — leaks usernames via a different vector than ?author=1." }
+    ]
+  },
+  {
+    title: "Misc. Operational Endpoints",
+    desc: "Lower severity on their own but relevant for a complete picture of attack surface.",
+    endpoints: [
+      { path: "wp-cron.php", risk: "medium", note: "Publicly triggerable by default — can be abused for DoS via repeated requests." },
+      { path: "wp-links-opml.php", risk: "medium", note: "Rarely used legacy endpoint, occasionally still exposed on older installs." },
+      { path: "wp-admin/admin-ajax.php?action=", risk: "medium", note: "Base AJAX handler — worth checking which actions are registered without auth." },
+      { path: "wp-trackback.php", risk: "medium", note: "Legacy trackback endpoint, another historical spam/SSRF vector." },
+      { path: "xmlrpc.php?rsd", risk: "low", note: "Duplicate-style discovery check, harmless but confirms platform." },
+      { path: "wp-json/wp/v2/media", risk: "low", note: "Confirms whether the media library is enumerable without auth." }
+    ]
+  },
+  {
+    title: "Forgotten Dev & Admin Tools",
+    desc: "Utility scripts uploaded during setup or debugging and never cleaned up — extremely common real-world findings.",
+    endpoints: [
+      { path: "phpinfo.php", risk: "critical", note: "Dumps full PHP config, loaded modules, and often environment variables." },
+      { path: "info.php", risk: "critical", note: "Same phpinfo() exposure, alternate common filename." },
+      { path: "test.php", risk: "high", note: "Generic leftover test script — contents vary but frequently informative." },
+      { path: "adminer.php", risk: "critical", note: "Standalone DB admin tool, sometimes dropped in for a migration and forgotten — direct DB access if reachable." },
+      { path: "phpmyadmin/", risk: "critical", note: "Full DB admin panel — check for default/weak credentials if reachable." },
+      { path: "wp-config-sample.php", risk: "low", note: "Ships with core, harmless, but confirms the exact config structure in use." }
+    ]
+  },
+  {
+    title: "Historically Vulnerable Bundled Components",
+    desc: "Components responsible for major real-world exploitation waves. Presence isn't proof of vulnerability — confirm version before reporting.",
+    endpoints: [
+      { path: "wp-content/themes/*/timthumb.php", risk: "critical", note: "TimThumb RCE — bundled in hundreds of themes, one of WP's largest historical exploitation waves (wildcard, check per-theme)." },
+      { path: "wp-content/plugins/revslider/", risk: "critical", note: "Revolution Slider arbitrary file read/upload — root cause of the 2014 'SoakSoak' mass-compromise campaign." },
+      { path: "wp-content/plugins/revslider/temp/", risk: "critical", note: "Temp upload directory associated with the same Slider Revolution CVE chain." },
+      { path: "*/uploadify/uploadify.php", risk: "critical", note: "Legacy unauthenticated arbitrary file upload component bundled in many older plugins/themes (wildcard path)." }
+    ]
+  },
+  {
+    title: "Caching & Drop-in Exposure",
+    desc: "Cache drop-ins run on nearly every request; misconfiguration here can leak DB info or serve cached admin/session content to anonymous users.",
+    endpoints: [
+      { path: "wp-content/object-cache.php", risk: "medium", note: "Cache drop-in — shouldn't be directly servable, but worth confirming." },
+      { path: "wp-content/advanced-cache.php", risk: "medium", note: "Same drop-in class, loaded before most of WP core." },
+      { path: "wp-content/cache/supercache/", risk: "high", note: "WP Super Cache storage — has historically served cached logged-in/admin pages to anonymous visitors when misconfigured." },
+      { path: "wp-content/cache/config.php", risk: "high", note: "WP Super Cache config file, occasionally left readable." },
+      { path: "wp-content/plugins/w3-total-cache/wp-cache-config.php", risk: "high", note: "W3 Total Cache config — check reachability directly." }
+    ]
+  },
+  {
+    title: "Form Plugin Upload Directories",
+    desc: "Unprotected submission-upload folders are one of the most common real PII leaks reported in bug bounty programs.",
+    endpoints: [
+      { path: "wp-content/uploads/gravity_forms/", risk: "high", note: "Gravity Forms submission uploads — recurring finding for exposed PII/documents." },
+      { path: "wp-content/uploads/ninja-forms/", risk: "high", note: "Ninja Forms upload directory, same exposure class." },
+      { path: "wp-content/uploads/formidable/", risk: "high", note: "Formidable Forms upload directory, same exposure class." }
+    ]
+  },
+  {
+    title: "Security Plugin Self-Owns",
+    desc: "Ironically, some security plugins' own logs and artifacts have been the finding.",
+    endpoints: [
+      { path: "wp-content/wflogs/", risk: "high", note: "Wordfence's own log directory — has been left publicly readable in the past." },
+      { path: "wp-content/uploads/sucuri/", risk: "medium", note: "Sucuri scan/log artifacts, check for readable output." }
+    ]
+  },
+  {
+    title: "Server-Level Exposure",
+    desc: "Not WP-specific, but always worth checking alongside a WP assessment — these sit at the web-server layer.",
+    endpoints: [
+      { path: "server-status", risk: "high", note: "Apache mod_status — can leak live request data including other visitors' URLs/session info." },
+      { path: "server-info", risk: "medium", note: "Apache mod_info — discloses full server module/config layout." },
+      { path: ".htaccess", risk: "medium", note: "Readable rewrite/security rules — shouldn't be servable, confirms server hardening." },
+      { path: ".user.ini", risk: "medium", note: "PHP per-directory overrides — can reveal disable_functions and other hardening settings." }
+    ]
+  },
+  {
+    title: "Multisite-Specific",
+    desc: "Only relevant on WordPress Multisite (network) installs.",
+    endpoints: [
+      { path: "wp-content/sunrise.php", risk: "medium", note: "Multisite domain-mapping drop-in — confirms multisite + mapping plugin usage." },
+      { path: "wp-signup.php", risk: "low", note: "Confirms whether open network signup is enabled." }
+    ]
+  }
+];
+
+const catsEl = document.getElementById('categories');
+const domainInput = document.getElementById('domain');
+const statusEl = document.getElementById('status');
+const toolbar = document.getElementById('toolbar');
+let activeFilter = 'all';
+
+function normalizeDomain(raw){
+  let d = raw.trim();
+  if(!d) return null;
+  d = d.replace(/^https?:\/\//i, '');
+  d = d.replace(/\/+$/,'');
+  return d;
+}
+
+function buildUrl(domain, path){
+  if(path.startsWith('?')) return `https://${domain}/${path}`;
+  return `https://${domain}/${path}`;
+}
+
+function render(){
+  const domain = normalizeDomain(domainInput.value);
+  catsEl.innerHTML = '';
+
+  DATA.forEach(cat => {
+    const visibleEndpoints = cat.endpoints.filter(e => activeFilter === 'all' || e.risk === activeFilter);
+    if(visibleEndpoints.length === 0) return;
+
+    const section = document.createElement('section');
+    section.className = 'category';
+
+    const head = document.createElement('div');
+    head.className = 'cat-head';
+    head.innerHTML = `<div class="cat-title">${cat.title}</div>`;
+    section.appendChild(head);
+
+    const desc = document.createElement('p');
+    desc.className = 'cat-desc';
+    desc.textContent = cat.desc;
+    section.appendChild(desc);
+
+    visibleEndpoints.forEach(ep => {
+      const row = document.createElement('div');
+      row.className = 'endpoint';
+
+      const tag = document.createElement('div');
+      tag.className = `risk-tag risk-${ep.risk}`;
+      tag.textContent = ep.risk;
+      row.appendChild(tag);
+
+      const body = document.createElement('div');
+      body.className = 'endpoint-body';
+
+      let pathEl;
+      if(domain){
+        pathEl = document.createElement('a');
+        pathEl.className = 'endpoint-path';
+        pathEl.href = buildUrl(domain, ep.path);
+        pathEl.target = '_blank';
+        pathEl.rel = 'noopener noreferrer';
+        pathEl.textContent = `${domain}/${ep.path}`;
+      } else {
+        pathEl = document.createElement('span');
+        pathEl.className = 'endpoint-path disabled';
+        pathEl.textContent = ep.path;
+      }
+
+      const noteEl = document.createElement('div');
+      noteEl.className = 'endpoint-note';
+      noteEl.textContent = ep.note;
+      body.appendChild(pathEl);
+      body.appendChild(noteEl);
+      row.appendChild(body);
+
+      section.appendChild(row);
+    });
+
+    catsEl.appendChild(section);
+  });
+
+  statusEl.textContent = domain ? `Targeting: ${domain}` : '';
+}
+
+domainInput.addEventListener('input', render);
+
+toolbar.addEventListener('click', (e) => {
+  const btn = e.target.closest('.filter-btn');
+  if(!btn) return;
+  toolbar.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeFilter = btn.dataset.filter;
+  render();
+});
+
+const TOTAL_COUNT = DATA.reduce((sum, cat) => sum + cat.endpoints.length, 0);
+document.getElementById('subheading').textContent =
+  `${TOTAL_COUNT} known-sensitive WordPress endpoints across ${DATA.length} categories · for authorized security research only`;
+
+render();
+</script>
+</body>
+</html>
